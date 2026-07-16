@@ -3,123 +3,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>个人记账</title>
+    <meta name="theme-color" content="#f4f1ea">
+    <title>个人记账 · 账本</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <main class="container">
-        <h1>个人记账</h1>
-        <p class="subtitle">记录每一笔收入和支出，了解自己的消费情况。</p>
-
-        <section class="summary-grid">
-            <div class="summary-card income"><span>总收入</span><strong>¥{{ "%.2f"|format(income) }}</strong></div>
-            <div class="summary-card expense"><span>总支出</span><strong>¥{{ "%.2f"|format(expense) }}</strong></div>
-            <div class="summary-card balance"><span>当前结余</span><strong>¥{{ "%.2f"|format(balance) }}</strong></div>
-        </section>
-
-        <section class="panel">
-            <h2>筛选记录</h2>
-            <form method="get" class="filter-form">
-                <label>类型
-                    <select name="type">
-                        <option value="">全部</option>
-                        <option value="income" {% if filters["type"] == "income" %}selected{% endif %}>收入</option>
-                        <option value="expense" {% if filters["type"] == "expense" %}selected{% endif %}>支出</option>
-                    </select>
-                </label>
-                <label>分类
-                    <select name="category">
-                        <option value="">全部分类</option>
-                        {% for category in categories %}
-                            <option value="{{ category['category'] }}" {% if filters["category"] == category['category'] %}selected{% endif %}>{{ category['category'] }}</option>
-                        {% endfor %}
-                    </select>
-                </label>
-                <label>开始日期<input type="date" name="date_from" value="{{ filters['date_from'] }}"></label>
-                <label>结束日期<input type="date" name="date_to" value="{{ filters['date_to'] }}"></label>
-                <div class="form-actions">
-                    <button type="submit">应用筛选</button>
-                    <a href="{{ url_for('index') }}">清除筛选</a>
-                    <a class="export-button" href="{{ url_for('export_transactions', **filters) }}">导出 CSV</a>
-                </div>
-            </form>
-        </section>
-
-        <section class="panel">
-            <div class="panel-heading">
-                <div>
-                    <h2>支出分类统计</h2>
-                    <p class="panel-hint">按当前筛选条件统计各分类支出</p>
-                </div>
-                {% if category_totals %}<span class="chart-total">共 {{ category_totals|length }} 个分类</span>{% endif %}
+    <div class="app-shell">
+        <header class="topbar">
+            <a class="brand" href="{{ url_for('index') }}" aria-label="返回个人记账首页">
+                <span class="brand-mark">账</span>
+                <span>个人记账</span>
+            </a>
+            <div class="topbar-tools">
+                <span class="today-label">{{ today }}</span>
+                <a class="button button-quiet" href="{{ url_for('export_transactions', **filters) }}">导出 CSV</a>
             </div>
-            {% if category_totals %}
-                <div class="chart">
-                    {% for item in category_totals[:8] %}
-                        {% set percent = (item["total"] / max_category_total * 100)|round(1) %}
-                        <div class="chart-row">
-                            <div class="chart-rank">{{ "%02d"|format(loop.index) }}</div>
-                            <div class="chart-label">{{ item["category"] }}</div>
-                            <div class="bar-track">
-                                <div class="bar bar-{{ loop.index }}" style="width: {{ percent }}%"></div>
-                            </div>
-                            <div class="chart-value"><strong>¥{{ "%.2f"|format(item["total"]) }}</strong><small>{{ percent }}%</small></div>
-                        </div>
-                    {% endfor %}
+        </header>
+
+        <main class="dashboard">
+            <section class="hero-grid">
+                <div class="hero-copy">
+                    <p class="eyebrow">日常账本 / {{ today[:7] }}</p>
+                    <h1>把每一笔钱，<br><em>记得清楚。</em></h1>
+                    <p class="hero-description">看见钱去了哪里，也看见自己正在建立怎样的生活。</p>
                 </div>
-                {% if category_totals|length > 8 %}<p class="panel-hint">仅显示支出最多的 8 个分类</p>{% endif %}
-            {% else %}
-                <div class="empty-state"><p>添加支出记录后，这里会显示分类统计。</p></div>
-            {% endif %}
-        </section>
+                <div class="balance-card">
+                    <div class="balance-card-top"><span>当前结余</span><span class="balance-dot"></span></div>
+                    <strong>¥{{ "%.2f"|format(balance) }}</strong>
+                    <div class="balance-foot"><span>收入 ¥{{ "%.2f"|format(income) }}</span><span>支出 ¥{{ "%.2f"|format(expense) }}</span></div>
+                </div>
+            </section>
 
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                <div class="messages">{% for message in messages %}<p>{{ message }}</p>{% endfor %}</div>
-            {% endif %}
-        {% endwith %}
+            <section class="metrics-grid" aria-label="财务概览">
+                <article class="metric-card metric-income"><span class="metric-label">总收入</span><strong>¥{{ "%.2f"|format(income) }}</strong><span class="metric-note">所有收入记录</span></article>
+                <article class="metric-card metric-expense"><span class="metric-label">总支出</span><strong>¥{{ "%.2f"|format(expense) }}</strong><span class="metric-note">所有支出记录</span></article>
+            </section>
 
-        <section class="panel">
-            <h2>添加记录</h2>
-            <form action="{{ url_for('add_transaction') }}" method="post" class="transaction-form">
-                <label>类型
-                    <select name="type"><option value="expense">支出</option><option value="income">收入</option></select>
-                </label>
-                <label>金额<input type="number" name="amount" min="0.01" step="0.01" required></label>
-                <label>分类<input type="text" name="category" placeholder="餐饮、工资等" required></label>
-                <label>日期<input type="date" name="date" value="{{ today }}" required></label>
-                <label class="wide">备注<input type="text" name="note" placeholder="可选"></label>
-                <button type="submit">保存记录</button>
-            </form>
-        </section>
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    <div class="messages" role="status">{% for message in messages %}<p>{{ message }}</p>{% endfor %}</div>
+                {% endif %}
+            {% endwith %}
 
-        <section class="panel">
-            <h2>最近记录</h2>
-            {% if transactions %}
-                <div class="table-wrapper"><table>
-                    <thead><tr><th>日期</th><th>类型</th><th>分类</th><th>备注</th><th>金额</th><th>操作</th></tr></thead>
-                    <tbody>
-                    {% for transaction in transactions %}
-                        <tr>
-                            <td>{{ transaction["date"] }}</td>
-                            <td>{{ "收入" if transaction["type"] == "income" else "支出" }}</td>
-                            <td>{{ transaction["category"] }}</td>
-                            <td>{{ transaction["note"] or "-" }}</td>
-                            <td class="{{ transaction['type'] }}">{{ "+" if transaction["type"] == "income" else "-" }}¥{{ "%.2f"|format(transaction["amount"]) }}</td>
-                            <td class="actions">
-                                <a class="edit-link" href="{{ url_for('edit_transaction', transaction_id=transaction['id']) }}">编辑</a>
-                                <form action="{{ url_for('delete_transaction', transaction_id=transaction['id']) }}" method="post">
-                                    <button type="submit" class="danger-button">删除</button>
-                                </form>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                    </tbody>
-                </table></div>
-            {% else %}
-                <div class="empty-state"><h3>还没有记账记录</h3><p>使用上面的表单添加第一笔记录。</p></div>
-            {% endif %}
-        </section>
-    </main>
+            <section class="content-grid">
+                <div class="main-column">
+                    <section class="surface compose-card">
+                        <div class="section-heading"><div><p class="eyebrow">快速记录</p><h2>记下一笔</h2></div><span class="section-index">01</span></div>
+                        <form action="{{ url_for('add_transaction') }}" method="post" class="transaction-form">
+                            <label>类型<select name="type"><option value="expense">支出</option><option value="income">收入</option></select></label>
+                            <label>金额<div class="money-input"><span>¥</span><input type="number" name="amount" min="0.01" step="0.01" placeholder="0.00" required></div></label>
+                            <label>分类<input type="text" name="category" placeholder="餐饮、工资等" required></label>
+                            <label>日期<input type="date" name="date" value="{{ today }}" required></label>
+                            <label class="wide">备注<input type="text" name="note" placeholder="给这笔记录留一句话"></label>
+                            <button class="button button-primary" type="submit">保存记录 <span>↗</span></button>
+                        </form>
+                    </section>
+
+                    <section class="surface filter-card">
+                        <div class="section-heading compact-heading"><div><p class="eyebrow">整理视线</p><h2>筛选记录</h2></div><span class="section-index">02</span></div>
+                        <form method="get" class="filter-form">
+                            <label>类型<select name="type"><option value="">全部</option><option value="income" {% if filters["type"] == "income" %}selected{% endif %}>收入</option><option value="expense" {% if filters["type"] == "expense" %}selected{% endif %}>支出</option></select></label>
+                            <label>分类<select name="category"><option value="">全部分类</option>{% for category in categories %}<option value="{{ category['category'] }}" {% if filters["category"] == category['category'] %}selected{% endif %}>{{ category['category'] }}</option>{% endfor %}</select></label>
+                            <label>从<input type="date" name="date_from" value="{{ filters['date_from'] }}"></label>
+                            <label>到<input type="date" name="date_to" value="{{ filters['date_to'] }}"></label>
+                            <div class="form-actions"><button class="button button-dark" type="submit">应用筛选</button><a href="{{ url_for('index') }}">清除</a></div>
+                        </form>
+                    </section>
+
+                    <section class="surface ledger-card">
+                        <div class="section-heading"><div><p class="eyebrow">流水记录</p><h2>最近记录</h2></div><span class="record-count">{{ transactions|length }} 条</span></div>
+                        {% if transactions %}
+                            <div class="ledger-list">
+                                {% for transaction in transactions %}
+                                    <article class="ledger-row">
+                                        <div class="ledger-date"><strong>{{ transaction["date"][5:] }}</strong><span>{{ transaction["date"][:4] }}</span></div>
+                                        <div class="ledger-main"><strong>{{ transaction["category"] }}</strong><span>{{ transaction["note"] or ("收入记录" if transaction["type"] == "income" else "支出记录") }}</span></div>
+                                        <div class="ledger-amount {{ transaction['type'] }}"><strong>{{ "+" if transaction["type"] == "income" else "−" }}¥{{ "%.2f"|format(transaction["amount"]) }}</strong><span>{{ "收入" if transaction["type"] == "income" else "支出" }}</span></div>
+                                        <div class="actions"><a class="edit-link" href="{{ url_for('edit_transaction', transaction_id=transaction['id']) }}">编辑</a><form action="{{ url_for('delete_transaction', transaction_id=transaction['id']) }}" method="post" onsubmit="return confirm('确定删除这条记录吗？');"><button class="delete-button" type="submit" aria-label="删除 {{ transaction['category'] }} 记录">×</button></form></div>
+                                    </article>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="empty-state"><span class="empty-mark">—</span><h3>还没有记录</h3><p>从上面的表单开始记下第一笔。</p></div>
+                        {% endif %}
+                    </section>
+                </div>
+
+                <aside class="side-column">
+                    <section class="surface chart-card">
+                        <div class="section-heading"><div><p class="eyebrow">花销地图</p><h2>钱花在哪里</h2></div><span class="section-index">03</span></div>
+                        {% if category_totals %}
+                            <div class="chart-list">
+                                {% for item in category_totals[:8] %}
+                                    {% set percent = (item["total"] / max_category_total * 100)|round(1) %}
+                                    <div class="chart-item"><div class="chart-item-head"><span>{{ item["category"] }}</span><strong>¥{{ "%.2f"|format(item["total"]) }}</strong></div><div class="bar-track"><div class="bar bar-{{ loop.index }}" style="width: {{ percent }}%"></div></div><span class="chart-percent">{{ percent }}%</span></div>
+                                {% endfor %}
+                            </div>
+                            {% if category_totals|length > 8 %}<p class="panel-hint">显示支出最高的 8 个分类</p>{% endif %}
+                        {% else %}
+                            <div class="empty-state compact-empty"><span class="empty-mark">○</span><p>有了支出记录，这里会出现分类统计。</p></div>
+                        {% endif %}
+                    </section>
+                </aside>
+            </section>
+        </main>
+    </div>
 </body>
 </html>

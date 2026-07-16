@@ -3,38 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>编辑记账记录</title>
+    <meta name="theme-color" content="#f4f1ea">
+    <title>编辑记录 · 个人记账</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <main class="container">
-        <section class="panel edit-panel">
-            <h1>编辑记账记录</h1>
-            <form method="post" class="transaction-form">
-                <label>类型
-                    <select name="type">
-                        <option value="expense" {% if transaction["type"] == "expense" %}selected{% endif %}>支出</option>
-                        <option value="income" {% if transaction["type"] == "income" %}selected{% endif %}>收入</option>
-                    </select>
-                </label>
-                <label>金额
-                    <input type="number" name="amount" min="0.01" step="0.01" value="{{ transaction['amount'] }}" required>
-                </label>
-                <label>分类
-                    <input type="text" name="category" value="{{ transaction['category'] }}" required>
-                </label>
-                <label>日期
-                    <input type="date" name="date" value="{{ transaction['date'] }}" required>
-                </label>
-                <label class="wide">备注
-                    <input type="text" name="note" value="{{ transaction['note'] }}">
-                </label>
-                <div class="form-actions">
-                    <button type="submit">保存修改</button>
-                    <a href="{{ url_for('index') }}">取消</a>
-                </div>
-            </form>
-        </section>
-    </main>
+    <div class="app-shell">
+        <header class="topbar"><a class="brand" href="{{ url_for('index') }}"><span class="brand-mark">账</span><span>个人记账</span></a><a class="button button-quiet" href="{{ url_for('index') }}">返回账本</a></header>
+        <main class="dashboard edit-page"><section class="surface edit-panel"><div class="section-heading"><div><p class="eyebrow">记录修订</p><h1>编辑这笔记录</h1></div><span class="section-index">04</span></div><form method="post" class="transaction-form"><label>类型<select name="type"><option value="expense" {% if transaction["type"] == "expense" %}selected{% endif %}>支出</option><option value="income" {% if transaction["type"] == "income" %}selected{% endif %}>收入</option></select></label><label>金额<div class="money-input"><span>¥</span><input type="number" name="amount" min="0.01" step="0.01" value="{{ transaction['amount'] }}" required></div></label><label>分类<input type="text" name="category" value="{{ transaction['category'] }}" required></label><label>日期<input type="date" name="date" value="{{ transaction['date'] }}" required></label><label class="wide">备注<input type="text" name="note" value="{{ transaction['note'] }}"></label><div class="form-actions"><button class="button button-primary" type="submit">保存修改 <span>↗</span></button><a href="{{ url_for('index') }}">取消</a></div></form></section></main>
+    </div>
 </body>
 </html>
