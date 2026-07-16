@@ -40,6 +40,7 @@
                 <div class="form-actions">
                     <button type="submit">应用筛选</button>
                     <a href="{{ url_for('index') }}">清除筛选</a>
+                    <a class="export-button" href="{{ url_for('export_transactions', **filters) }}">导出 CSV</a>
                 </div>
             </form>
         </section>

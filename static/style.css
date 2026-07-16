@@ -20,6 +20,7 @@ button { width: fit-content; border: 0; background: #2563eb; color: white; curso
 .danger-button { padding: 7px 10px; background: #fee2e2; color: #b91c1c; }
 .actions { display: flex; align-items: center; gap: 8px; }
 .edit-link, .form-actions a { color: #2563eb; text-decoration: none; }
+.export-button { padding: 11px 12px; border-radius: 8px; background: #ecfdf5; color: #047857 !important; }
 .edit-panel { max-width: 640px; margin: 0 auto; }
 .form-actions { display: flex; align-items: center; gap: 16px; }
 .messages { margin-top: 24px; background: #eff6ff; color: #1d4ed8; }

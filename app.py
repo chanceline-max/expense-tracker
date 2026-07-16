@@ -1,6 +1,8 @@
+import csv
+import io
 from datetime import date
 
-from flask import Flask, flash, redirect, render_template, request, url_for
+from flask import Flask, Response, flash, redirect, render_template, request, url_for
 
 from database import close_db, get_db, init_db
 
@@ -15,16 +17,18 @@ with app.app_context():
 app.teardown_appcontext(close_db)
 
 
-@app.route("/")
-def index():
-    """显示首页、统计数据和最近的记账记录。"""
-    db = get_db()
-    filters = {
+def get_filters():
+    """Read and normalize filters from the current request."""
+    return {
         "type": request.args.get("type", ""),
         "category": request.args.get("category", "").strip(),
         "date_from": request.args.get("date_from", ""),
         "date_to": request.args.get("date_to", ""),
     }
+
+
+def build_filter_query(filters):
+    """Build a safe SQL WHERE clause and its parameters."""
     conditions = []
     params = []
     if filters["type"] in {"income", "expense"}:
@@ -40,7 +44,15 @@ def index():
         conditions.append("date <= ?")
         params.append(filters["date_to"])
     where_clause = " WHERE " + " AND ".join(conditions) if conditions else ""
+    return where_clause, params
 
+
+@app.route("/")
+def index():
+    """Show transactions, totals, filters, and category statistics."""
+    db = get_db()
+    filters = get_filters()
+    where_clause, params = build_filter_query(filters)
     transactions = db.execute(
         f"SELECT * FROM transactions{where_clause} ORDER BY date DESC, id DESC",
         params,
@@ -81,9 +93,41 @@ def index():
     )
 
 
+@app.get("/export")
+def export_transactions():
+    """Export the currently filtered transactions as a UTF-8 CSV file."""
+    db = get_db()
+    filters = get_filters()
+    where_clause, params = build_filter_query(filters)
+    rows = db.execute(
+        f"""
+        SELECT date, type, category, note, amount
+        FROM transactions{where_clause}
+        ORDER BY date DESC, id DESC
+        """,
+        params,
+    ).fetchall()
+
+    output = io.StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(["日期", "类型", "分类", "备注", "金额"])
+    for row in rows:
+        writer.writerow([
+            row["date"],
+            "收入" if row["type"] == "income" else "支出",
+            row["category"],
+            row["note"],
+            f"{row['amount']:.2f}",
+        ])
+
+    response = Response("\ufeff" + output.getvalue(), mimetype="text/csv")
+    response.headers["Content-Disposition"] = "attachment; filename=transactions.csv"
+    return response
+
+
 @app.post("/transactions")
 def add_transaction():
-    """接收表单并新增一笔记账记录。"""
+    """Validate and add a transaction."""
     transaction_type = request.form.get("type", "expense")
     category = request.form.get("category", "其他").strip()
     note = request.form.get("note", "").strip()
@@ -102,10 +146,7 @@ def add_transaction():
     else:
         db = get_db()
         db.execute(
-            """
-            INSERT INTO transactions (type, amount, category, note, date)
-            VALUES (?, ?, ?, ?, ?)
-            """,
+            "INSERT INTO transactions (type, amount, category, note, date) VALUES (?, ?, ?, ?, ?)",
             (transaction_type, amount, category, note, transaction_date),
         )
         db.commit()
@@ -116,35 +157,24 @@ def add_transaction():
 
 @app.post("/transactions/<int:transaction_id>/delete")
 def delete_transaction(transaction_id):
-    """根据编号删除一笔记账记录。"""
+    """Delete one transaction by its ID."""
     db = get_db()
-    cursor = db.execute(
-        "DELETE FROM transactions WHERE id = ?",
-        (transaction_id,),
-    )
+    cursor = db.execute("DELETE FROM transactions WHERE id = ?", (transaction_id,))
     db.commit()
-
-    if cursor.rowcount:
-        flash("记录已删除。")
-    else:
-        flash("没有找到这条记录。")
-
+    flash("记录已删除。" if cursor.rowcount else "没有找到这条记录。")
     return redirect(url_for("index"))
 
 
 @app.route("/transactions/<int:transaction_id>/edit", methods=["GET", "POST"])
 def edit_transaction(transaction_id):
-    """显示或保存一笔记账记录的修改。"""
+    """Show or save edits for one transaction."""
     db = get_db()
     transaction = db.execute(
-        "SELECT * FROM transactions WHERE id = ?",
-        (transaction_id,),
+        "SELECT * FROM transactions WHERE id = ?", (transaction_id,)
     ).fetchone()
-
     if transaction is None:
         flash("没有找到这条记录。")
         return redirect(url_for("index"))
-
     if request.method == "GET":
         return render_template("edit.html", transaction=transaction)
 
@@ -156,7 +186,6 @@ def edit_transaction(transaction_id):
         amount = float(request.form.get("amount", "0"))
     except ValueError:
         amount = 0
-
     if transaction_type not in {"income", "expense"} or amount <= 0:
         flash("记录类型或金额不正确。")
     elif not category or not transaction_date:
@@ -172,7 +201,6 @@ def edit_transaction(transaction_id):
         )
         db.commit()
         flash("记录已更新。")
-
     return redirect(url_for("index"))
 
 
