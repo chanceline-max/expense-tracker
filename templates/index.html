@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人记账</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <main class="container">
+        <h1>个人记账</h1>
+        <p class="subtitle">记录每一笔收入和支出，了解自己的消费情况。</p>
+
+        <section class="summary-grid">
+            <div class="summary-card income"><span>总收入</span><strong>¥{{ "%.2f"|format(income) }}</strong></div>
+            <div class="summary-card expense"><span>总支出</span><strong>¥{{ "%.2f"|format(expense) }}</strong></div>
+            <div class="summary-card balance"><span>当前结余</span><strong>¥{{ "%.2f"|format(balance) }}</strong></div>
+        </section>
+
+        <section class="panel">
+            <h2>筛选记录</h2>
+            <form method="get" class="filter-form">
+                <label>类型
+                    <select name="type">
+                        <option value="">全部</option>
+                        <option value="income" {% if filters["type"] == "income" %}selected{% endif %}>收入</option>
+                        <option value="expense" {% if filters["type"] == "expense" %}selected{% endif %}>支出</option>
+                    </select>
+                </label>
+                <label>分类
+                    <select name="category">
+                        <option value="">全部分类</option>
+                        {% for category in categories %}
+                            <option value="{{ category['category'] }}" {% if filters["category"] == category['category'] %}selected{% endif %}>{{ category['category'] }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label>开始日期<input type="date" name="date_from" value="{{ filters['date_from'] }}"></label>
+                <label>结束日期<input type="date" name="date_to" value="{{ filters['date_to'] }}"></label>
+                <div class="form-actions">
+                    <button type="submit">应用筛选</button>
+                    <a href="{{ url_for('index') }}">清除筛选</a>
+                </div>
+            </form>
+        </section>
+
+        <section class="panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>支出分类统计</h2>
+                    <p class="panel-hint">按当前筛选条件统计各分类支出</p>
+                </div>
+                {% if category_totals %}<span class="chart-total">共 {{ category_totals|length }} 个分类</span>{% endif %}
+            </div>
+            {% if category_totals %}
+                <div class="chart">
+                    {% for item in category_totals[:8] %}
+                        {% set percent = (item["total"] / max_category_total * 100)|round(1) %}
+                        <div class="chart-row">
+                            <div class="chart-rank">{{ "%02d"|format(loop.index) }}</div>
+                            <div class="chart-label">{{ item["category"] }}</div>
+                            <div class="bar-track">
+                                <div class="bar bar-{{ loop.index }}" style="width: {{ percent }}%"></div>
+                            </div>
+                            <div class="chart-value"><strong>¥{{ "%.2f"|format(item["total"]) }}</strong><small>{{ percent }}%</small></div>
+                        </div>
+                    {% endfor %}
+                </div>
+                {% if category_totals|length > 8 %}<p class="panel-hint">仅显示支出最多的 8 个分类</p>{% endif %}
+            {% else %}
+                <div class="empty-state"><p>添加支出记录后，这里会显示分类统计。</p></div>
+            {% endif %}
+        </section>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="messages">{% for message in messages %}<p>{{ message }}</p>{% endfor %}</div>
+            {% endif %}
+        {% endwith %}
+
+        <section class="panel">
+            <h2>添加记录</h2>
+            <form action="{{ url_for('add_transaction') }}" method="post" class="transaction-form">
+                <label>类型
+                    <select name="type"><option value="expense">支出</option><option value="income">收入</option></select>
+                </label>
+                <label>金额<input type="number" name="amount" min="0.01" step="0.01" required></label>
+                <label>分类<input type="text" name="category" placeholder="餐饮、工资等" required></label>
+                <label>日期<input type="date" name="date" value="{{ today }}" required></label>
+                <label class="wide">备注<input type="text" name="note" placeholder="可选"></label>
+                <button type="submit">保存记录</button>
+            </form>
+        </section>
+
+        <section class="panel">
+            <h2>最近记录</h2>
+            {% if transactions %}
+                <div class="table-wrapper"><table>
+                    <thead><tr><th>日期</th><th>类型</th><th>分类</th><th>备注</th><th>金额</th><th>操作</th></tr></thead>
+                    <tbody>
+                    {% for transaction in transactions %}
+                        <tr>
+                            <td>{{ transaction["date"] }}</td>
+                            <td>{{ "收入" if transaction["type"] == "income" else "支出" }}</td>
+                            <td>{{ transaction["category"] }}</td>
+                            <td>{{ transaction["note"] or "-" }}</td>
+                            <td class="{{ transaction['type'] }}">{{ "+" if transaction["type"] == "income" else "-" }}¥{{ "%.2f"|format(transaction["amount"]) }}</td>
+                            <td class="actions">
+                                <a class="edit-link" href="{{ url_for('edit_transaction', transaction_id=transaction['id']) }}">编辑</a>
+                                <form action="{{ url_for('delete_transaction', transaction_id=transaction['id']) }}" method="post">
+                                    <button type="submit" class="danger-button">删除</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table></div>
+            {% else %}
+                <div class="empty-state"><h3>还没有记账记录</h3><p>使用上面的表单添加第一笔记录。</p></div>
+            {% endif %}
+        </section>
+    </main>
+</body>
+</html>
